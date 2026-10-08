@@ -517,6 +517,51 @@
   </footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase.js"></script>
+  <script>
+async function loadStories() {
+  const container = document.getElementById("journal-grid");
+
+  if (!container) return;
+
+  const { data, error } = await supabaseClient
+    .from("Stories")
+    .select("Title, Content, created_at")
+    .order("created_at", { ascending: false });
+
+  container.replaceChildren();
+
+  if (error) {
+    container.textContent = "Stories could not be loaded. Please try again later.";
+    console.error(error);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    container.textContent = "No stories yet. Come back soon!";
+    return;
+  }
+
+  data.forEach((story, index) => {
+    const card = document.createElement("div");
+    card.className = "journal-card";
+
+    const entry = document.createElement("span");
+    entry.textContent = "ENTRY " + String(index + 1).padStart(2, "0");
+
+    const title = document.createElement("h3");
+    title.textContent = story.Title;
+
+    const content = document.createElement("p");
+    content.textContent = story.Content;
+    content.style.whiteSpace = "pre-wrap";
+
+    card.append(entry, title, content);
+    container.appendChild(card);
+  });
+}
+
+loadStories();
+  </script>
 </body>
 
           </html>
