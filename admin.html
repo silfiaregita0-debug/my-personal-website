@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Little World | Admin</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #f7f4ee;
+      color: #292621;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      width: 90%;
+      max-width: 700px;
+      margin: 60px auto;
+    }
+
+    h1 {
+      font-family: Georgia, serif;
+      font-size: 42px;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #777;
+      margin-bottom: 40px;
+    }
+
+    .box {
+      background: white;
+      padding: 30px;
+      border: 1px solid #e5e0d8;
+      margin-bottom: 25px;
+    }
+
+    label {
+      display: block;
+      margin: 18px 0 8px;
+      font-size: 13px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      padding: 14px;
+      border: 1px solid #d8d2c8;
+      background: #fff;
+      font-size: 16px;
+      font-family: inherit;
+    }
+
+    textarea {
+      min-height: 220px;
+      resize: vertical;
+    }
+
+    button {
+      margin-top: 22px;
+      padding: 14px 24px;
+      border: none;
+      background: #292621;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button:hover {
+      opacity: 0.85;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #message {
+      margin-top: 18px;
+      font-size: 14px;
+    }
+
+    .logout {
+      background: transparent;
+      color: #292621;
+      border: 1px solid #292621;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <h1>My little archive.</h1>
+    <p class="subtitle">
+      A private place to add stories to My Little World.
+    </p>
+
+    <!-- LOGIN -->
+    <div id="loginBox" class="box">
+
+      <h2>Welcome back.</h2>
+
+      <label>Email</label>
+      <input type="email" id="email" placeholder="Your email">
+
+      <label>Password</label>
+      <input type="password" id="password" placeholder="Your password">
+
+      <button onclick="login()">Enter</button>
+
+      <div id="loginMessage"></div>
+
+    </div>
+
+    <!-- ADMIN -->
+    <div id="adminBox" class="box hidden">
+
+      <h2>New story</h2>
+
+      <label>Title</label>
+      <input
+        type="text"
+        id="title"
+        placeholder="My first month in Japan"
+      >
+
+      <label>Story</label>
+      <textarea
+        id="content"
+        placeholder="Write whatever you want to remember..."
+      ></textarea>
+
+      <button onclick="addStory()">Publish story</button>
+
+      <button class="logout" onclick="logout()">Log out</button>
+
+      <div id="message"></div>
+
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+
+  <script>
+
+    async function login() {
+
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const message = document.getElementById("loginMessage");
+
+      const { error } = await supabaseClient.auth.signInWithPassword({
+        email: email,
+        password: password
+      });
+
+      if (error) {
+        message.textContent = error.message;
+        return;
+      }
+
+      document.getElementById("loginBox").classList.add("hidden");
+      document.getElementById("adminBox").classList.remove("hidden");
+    }
+
+
+    async function addStory() {
+
+      const title = document.getElementById("title").value;
+      const content = document.getElementById("content").value;
+      const message = document.getElementById("message");
+
+      if (!title || !content) {
+        message.textContent = "Please fill in the title and story.";
+        return;
+      }
+
+      const { error } = await supabaseClient
+        .from("Stories")
+        .insert([
+          {
+            title: title,
+            content: content
+          }
+        ]);
+
+      if (error) {
+        message.textContent = error.message;
+        return;
+      }
+
+      message.textContent = "Story published successfully.";
+
+      document.getElementById("title").value = "";
+      document.getElementById("content").value = "";
+    }
+
+
+    async function logout() {
+
+      await supabaseClient.auth.signOut();
+
+      document.getElementById("adminBox").classList.add("hidden");
+      document.getElementById("loginBox").classList.remove("hidden");
+    }
+
+  </script>
+
+</body>
+  </html>
