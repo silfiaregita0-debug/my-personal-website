@@ -139,11 +139,29 @@
         placeholder="Write whatever you want to remember..."
       ></textarea>
 
-      <button onclick="addStory()">Publish story</button>
+      <button id="saveButton" onclick="saveStory()">
+  Publish story
+</button>
 
-      <button class="logout" onclick="logout()">Log out</button>
+<button
+  id="cancelEditButton"
+  class="logout hidden"
+  onclick="cancelEdit()"
+>
+  Cancel edit
+</button>
 
-      <div id="message"></div>
+<div id="message"></div>
+
+<hr style="margin: 35px 0; border: 0; border-top: 1px solid #e5e0d8;">
+
+<h2>My stories</h2>
+
+<div id="storiesList">
+  Loading stories...
+</div>
+
+<button class="logout" onclick="logout()">Log out</button>
 
     </div>
 
@@ -152,70 +170,164 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.js"></script>
 
-  <script>
+<script>
+let editingId = null;
 
-    async function login() {
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const message = document.getElementById("loginMessage");
 
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
-      const message = document.getElementById("loginMessage");
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password
+  });
 
-      const { error } = await supabaseClient.auth.signInWithPassword({
-        email: email,
-        password: password
-      });
+  if (error) {
+    message.textContent = error.message;
+    return;
+  }
 
-      if (error) {
-        message.textContent = error.message;
-        return;
-      }
+  document.getElementById("loginBox").classList.add("hidden");
+  document.getElementById("adminBox").classList.remove("hidden");
 
-      document.getElementById("loginBox").classList.add("hidden");
-      document.getElementById("adminBox").classList.remove("hidden");
-    }
+  loadStories();
+}
 
+async function loadStories() {
+  const list = document.getElementById("storiesList");
+  list.textContent = "Loading stories...";
 
-    async function addStory() {
+  const { data, error } = await supabaseClient
+    .from("Stories")
+    .select('id, "Title", "Content", created_at')
+    .order("created_at", { ascending: false });
 
-      const title = document.getElementById("title").value;
-      const content = document.getElementById("content").value;
-      const message = document.getElementById("message");
+  if (error) {
+    list.textContent = "Could not load stories: " + error.message;
+    return;
+  }
 
-      if (!title || !content) {
-        message.textContent = "Please fill in the title and story.";
-        return;
-      }
+  list.replaceChildren();
 
-      const { error } = await supabaseClient
-        .from("Stories")
-        .insert([
-          {
-            Title: title,
-            Content: content
-          }
-        ]);
+  if (!data || data.length === 0) {
+    list.textContent = "No stories yet.";
+    return;
+  }
 
-      if (error) {
-        message.textContent = error.message;
-        return;
-      }
+  data.forEach(story => {
+    const card = document.createElement("div");
+    card.className = "box";
 
-      message.textContent = "Story published successfully.";
+    const heading = document.createElement("h3");
+    heading.textContent = story.Title;
 
-      document.getElementById("title").value = "";
-      document.getElementById("content").value = "";
-    }
+    const preview = document.createElement("p");
+    preview.textContent = story.Content;
 
+    const editButton = document.createElement("button");
+    editButton.textContent = "Edit";
+    editButton.onclick = () => startEdit(story);
 
-    async function logout() {
+    const deleteButton = document.createElement("button");
+    deleteButton.textContent = "Delete";
+    deleteButton.className = "logout";
+    deleteButton.style.marginLeft = "8px";
+    deleteButton.onclick = () => deleteStory(story.id);
 
-      await supabaseClient.auth.signOut();
+    card.append(heading, preview, editButton, deleteButton);
+    list.appendChild(card);
+  });
+}
 
-      document.getElementById("adminBox").classList.add("hidden");
-      document.getElementById("loginBox").classList.remove("hidden");
-    }
+async function saveStory() {
+  const title = document.getElementById("title").value.trim();
+  const content = document.getElementById("content").value.trim();
+  const message = document.getElementById("message");
 
-  </script>
+  if (!title || !content) {
+    message.textContent = "Please fill in the title and story.";
+    return;
+  }
+
+  let result;
+
+  if (editingId !== null) {
+    result = await supabaseClient
+      .from("Stories")
+      .update({ Title: title, Content: content })
+      .eq("id", editingId);
+  } else {
+    result = await supabaseClient
+      .from("Stories")
+      .insert([{ Title: title, Content: content }]);
+  }
+
+  if (result.error) {
+    message.textContent = result.error.message;
+    return;
+  }
+
+  message.textContent = editingId !== null
+    ? "Story updated successfully!"
+    : "Story published successfully!";
+
+  cancelEdit();
+  await loadStories();
+}
+
+function startEdit(story) {
+  editingId = story.id;
+
+  document.getElementById("title").value = story.Title || "";
+  document.getElementById("content").value = story.Content || "";
+  document.getElementById("saveButton").textContent = "Save changes";
+  document.getElementById("cancelEditButton").classList.remove("hidden");
+  document.getElementById("message").textContent = "Editing story...";
+  window.scrollTo(0, 0);
+}
+
+function cancelEdit() {
+  editingId = null;
+
+  document.getElementById("title").value = "";
+  document.getElementById("content").value = "";
+  document.getElementById("saveButton").textContent = "Publish story";
+  document.getElementById("cancelEditButton").classList.add("hidden");
+}
+
+async function deleteStory(id) {
+  const confirmed = confirm(
+    "Are you sure you want to permanently delete this story?"
+  );
+
+  if (!confirmed) return;
+
+  const { error } = await supabaseClient
+    .from("Stories")
+    .delete()
+    .eq("id", id);
+
+  const message = document.getElementById("message");
+
+  if (error) {
+    message.textContent = error.message;
+    return;
+  }
+
+  if (editingId === id) cancelEdit();
+
+  message.textContent = "Story deleted successfully.";
+  await loadStories();
+}
+
+async function logout() {
+  await supabaseClient.auth.signOut();
+
+  document.getElementById("adminBox").classList.add("hidden");
+  document.getElementById("loginBox").classList.remove("hidden");
+}
+</script>
 
 </body>
   </html>
